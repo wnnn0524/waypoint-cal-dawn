@@ -107,25 +107,30 @@ def format_degrees_as_dms(lat: float, lon: float) -> str:
     lat_d, lat_m, lat_s, lat_dir, _ = deg2dms(lat)
     lon_d, lon_m, lon_s, _, lon_dir = deg2dms(lon)
     
-    # 确保秒数在0-60范围内，处理浮点精度问题
+    # 确保秒数在 0-60 范围内，处理浮点精度问题
     lat_s = min(lat_s, 59.9999)
     lon_s = min(lon_s, 59.9999)
     
-    # 格式化秒数为 SS.SS 格式（使用round避免浮点数精度问题）
-    lat_s_deg = int(lat_s)
-    lat_s_sec = round((lat_s - lat_s_deg) * 100)
-    lon_s_deg = int(lon_s)
-    lon_s_sec = round((lon_s - lon_s_deg) * 100)
+    # 先对秒数进行四舍五入到两位小数，避免浮点数精度问题
+    lat_s_rounded = round(lat_s * 100) / 100.0
+    lon_s_rounded = round(lon_s * 100) / 100.0
     
-    # 处理四舍五入后可能超过59.99的情况
-    if lat_s_sec >= 100:
-        lat_s_deg += 1
-        lat_s_sec = 0
-    if lon_s_sec >= 100:
-        lon_s_deg += 1
-        lon_s_sec = 0
+    # 处理四舍五入后可能超过 59.99 的情况
+    if lat_s_rounded >= 60.0:
+        lat_s_rounded = 0.0
+        lat_m += 1
+        if lat_m >= 60:
+            lat_m = 0
+            lat_d += 1
+    if lon_s_rounded >= 60.0:
+        lon_s_rounded = 0.0
+        lon_m += 1
+        if lon_m >= 60:
+            lon_m = 0
+            lon_d += 1
     
-    lat_s_str = f"{lat_s_deg:02d}.{lat_s_sec:02d}"
-    lon_s_str = f"{lon_s_deg:02d}.{lon_s_sec:02d}"
+    # 直接使用格式化字符串，确保正确的四舍五入显示
+    lat_s_str = f"{lat_s_rounded:05.2f}"
+    lon_s_str = f"{lon_s_rounded:05.2f}"
     
     return (f"{lat_dir}{int(lat_d):02d}-{int(lat_m):02d}-{lat_s_str}，{lon_dir}{int(lon_d):03d}-{int(lon_m):02d}-{lon_s_str}")

@@ -35,6 +35,7 @@ def get_coords_with_ref(label, key_prefix, data_tables, default_lat_d=30, defaul
             
             # 提供清除引用按钮
             if st.button(f"清除引用", key=f"{key_prefix}_clear_ref"):
+                
                 del st.session_state['ref_coords']
                 del st.session_state['ref_record_name']
                 st.rerun()
@@ -355,14 +356,14 @@ def inverse_calculator(data_tables):
 
 
 def segment_segment_calculator(data_tables):
-    st.subheader("线段与线段交会 (Seg/Seg)")
+    st.subheader("射线与射线交会 (Seg/Seg)")
     col1, col2 = st.columns(2)
     with col1:
-        st.write("**线段1：A -> B**")
+        st.write("**射线1：A → B**")
         latA, lonA, _, ref_infoA = get_coords_with_ref("点A", "ss_A", data_tables)
         latB, lonB, _, ref_infoB = get_coords_with_ref("点B", "ss_B", data_tables, default_lat_d=30, default_lon_d=120)
     with col2:
-        st.write("**线段2：C -> D**")
+        st.write("**射线2：C → D**")
         latC, lonC, _, ref_infoC = get_coords_with_ref("点C", "ss_C", data_tables, default_lat_d=30, default_lon_d=119)
         latD, lonD, _, ref_infoD = get_coords_with_ref("点D", "ss_D", data_tables, default_lat_d=30, default_lon_d=121)
     
@@ -381,7 +382,7 @@ def segment_segment_calculator(data_tables):
                 st.success(f"**交会点：**")
                 st.write(format_result(lat_intersect, lon_intersect))
             else:
-                st.warning("两条线段不相交")
+                st.warning("两条射线不相交（平行或交点在起点后方）")
         
         st.session_state['ss_result'] = {
             'lat_intersect': lat_intersect,
@@ -419,11 +420,15 @@ def bearing_bearing_calculator(data_tables):
     with col1:
         st.write("**方位线1**")
         lat1, lon1, _, ref_info1 = get_coords_with_ref("起点", "bb_1", data_tables)
+        az1_type = st.radio("方位角1类型", ["真方位", "磁方位"], key="bb_az1_type", horizontal=True)
         az1 = st.number_input("方位角1 (°)", value=45.0, min_value=0.0, max_value=360.0, step=0.1, key="bb_az1")
+        decl1 = st.number_input("磁偏角1 (东偏为正，°)", value=0.0, step=0.1, key="bb_decl1")
     with col2:
         st.write("**方位线2**")
         lat2, lon2, _, ref_info2 = get_coords_with_ref("起点", "bb_2", data_tables, default_lat_d=30, default_lon_d=120)
+        az2_type = st.radio("方位角2类型", ["真方位", "磁方位"], key="bb_az2_type", horizontal=True)
         az2 = st.number_input("方位角2 (°)", value=315.0, min_value=0.0, max_value=360.0, step=0.1, key="bb_az2")
+        decl2 = st.number_input("磁偏角2 (东偏为正，°)", value=0.0, step=0.1, key="bb_decl2")
     
     result_placeholder = st.empty()
     
@@ -432,8 +437,11 @@ def bearing_bearing_calculator(data_tables):
             with result_placeholder.container():
                 st.error("请输入有效的坐标")
             return
-            
-        lat_intersect, lon_intersect = bearing_bearing_intersection_geo(lat1, lon1, az1, lat2, lon2, az2)
+        
+        true_az1 = normalize_az(az1 + decl1) if az1_type == "磁方位" else az1
+        true_az2 = normalize_az(az2 + decl2) if az2_type == "磁方位" else az2
+        
+        lat_intersect, lon_intersect = bearing_bearing_intersection_geo(lat1, lon1, true_az1, lat2, lon2, true_az2)
         
         with result_placeholder.container():
             if lat_intersect is not None:
@@ -448,8 +456,14 @@ def bearing_bearing_calculator(data_tables):
             'input_data': {
                 'point1': {'lat': lat1, 'lon': lon1, 'ref_info': ref_info1},
                 'azimuth1': az1,
+                'az1_type': az1_type,
+                'declination1': decl1,
+                'true_az1': true_az1,
                 'point2': {'lat': lat2, 'lon': lon2, 'ref_info': ref_info2},
-                'azimuth2': az2
+                'azimuth2': az2,
+                'az2_type': az2_type,
+                'declination2': decl2,
+                'true_az2': true_az2
             }
         }
     

@@ -5,50 +5,68 @@ import math
 from .vincenty import vincenty_forward, vincenty_inverse
 
 
-def bearing_bearing_intersection_geo(lat1: float, lon1: float, az1: float, 
+def bearing_bearing_intersection_geo(lat1: float, lon1: float, az1: float,
                                       lat2: float, lon2: float, az2: float) -> tuple:
     """
-    方位角与方位角交会（大地坐标系）
-    
+    方位角与方位角交会（基于Vincenty精确扫描法）
+
     Args:
         lat1, lon1: 点1坐标
         az1: 从点1出发的方位角
         lat2, lon2: 点2坐标
         az2: 从点2出发的方位角
-    
+
     Returns:
-        (lat, lon) 交点坐标，无交点返回 (None, None)
+        (lat, lon) 交点坐标
     """
-    az1 = math.radians(az1)
-    az2 = math.radians(az2)
-    lat1_rad = math.radians(lat1)
-    lon1_rad = math.radians(lon1)
-    lat2_rad = math.radians(lat2)
-    lon2_rad = math.radians(lon2)
-    
-    a1 = math.sin(az1)
-    b1 = -math.cos(az1)
-    c1 = -a1 * lon1_rad + b1 * math.log(math.tan(math.pi / 4 + lat1_rad / 2))
-    a2 = math.sin(az2)
-    b2 = -math.cos(az2)
-    c2 = -a2 * lon2_rad + b2 * math.log(math.tan(math.pi / 4 + lat2_rad / 2))
-    
-    denom = a1 * b2 - a2 * b1
-    if abs(denom) < 1e-12:
+    az1 = ((az1 % 360) + 360) % 360
+    az2 = ((az2 % 360) + 360) % 360
+
+    def _az_error(lat_test, lon_test):
+        _, az_actual, _ = vincenty_inverse(lat2, lon2, lat_test, lon_test)
+        az_actual = ((az_actual % 360) + 360) % 360
+        diff = (az_actual - az2 + 180) % 360 - 180
+        return diff
+
+    # 第一轮：粗扫描 0.1 - 200 NM，步长 0.01 NM
+    best_lat, best_lon, best_err, best_d1_nm = None, None, 999.0, 0.0
+
+    d1_nm = 0.1
+    while d1_nm <= 200.0:
+        lat_test, lon_test = vincenty_forward(lat1, lon1, az1, d1_nm * 1852.0)
+        err = abs(_az_error(lat_test, lon_test))
+
+        if err < best_err:
+            best_err = err
+            best_lat = lat_test
+            best_lon = lon_test
+            best_d1_nm = d1_nm
+
+        if best_err < 0.1 and d1_nm > best_d1_nm + 1.0:
+            break
+
+        d1_nm += 0.01
+
+    if best_lat is None:
         return None, None
-    
-    lon_rad = (b2 * c1 - b1 * c2) / denom
-    log_tan_half_lat = (a1 * c2 - a2 * c1) / denom
-    
-    if abs(log_tan_half_lat) > 20:
-        return None, None
-    
-    lat_rad = 2 * math.atan(math.exp(log_tan_half_lat)) - math.pi / 2
-    lat = math.degrees(lat_rad)
-    lon = math.degrees(lon_rad)
-    lon = ((lon + 180) % 360) - 180
-    
-    return lat, lon
+
+    # 第二轮：在最佳值附近 0.5 NM 范围内精细扫描，步长 0.0001 NM
+    start_nm = max(0.05, best_d1_nm - 0.5)
+    end_nm = best_d1_nm + 0.5
+
+    d1_nm = start_nm
+    while d1_nm <= end_nm:
+        lat_test, lon_test = vincenty_forward(lat1, lon1, az1, d1_nm * 1852.0)
+        err = abs(_az_error(lat_test, lon_test))
+
+        if err < best_err:
+            best_err = err
+            best_lat = lat_test
+            best_lon = lon_test
+
+        d1_nm += 0.0001
+
+    return best_lat, best_lon
 
 
 def segment_segment_intersection_geo(lat1: float, lon1: float, lat2: float, lon2: float,

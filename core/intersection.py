@@ -72,55 +72,20 @@ def bearing_bearing_intersection_geo(lat1: float, lon1: float, az1: float,
 def segment_segment_intersection_geo(lat1: float, lon1: float, lat2: float, lon2: float,
                                       lat3: float, lon3: float, lat4: float, lon4: float) -> tuple:
     """
-    线段与线段交会（大地坐标系）
+    射线与射线交会（大地坐标系）
     
     Args:
-        lat1, lon1: 线段1起点
-        lat2, lon2: 线段1终点
-        lat3, lon3: 线段2起点
-        lat4, lon4: 线段2终点
+        lat1, lon1: 射线1起点 A
+        lat2, lon2: 射线1方向点 B
+        lat3, lon3: 射线2起点 C
+        lat4, lon4: 射线2方向点 D
     
     Returns:
         (lat, lon) 交点坐标，无交点返回 (None, None)
     """
-    lat1_rad = math.radians(lat1)
-    lon1_rad = math.radians(lon1)
-    lat2_rad = math.radians(lat2)
-    lon2_rad = math.radians(lon2)
-    lat3_rad = math.radians(lat3)
-    lon3_rad = math.radians(lon3)
-    lat4_rad = math.radians(lat4)
-    lon4_rad = math.radians(lon4)
-    
-    x1 = lon1_rad
-    y1 = math.log(math.tan(math.pi / 4 + lat1_rad / 2))
-    x2 = lon2_rad
-    y2 = math.log(math.tan(math.pi / 4 + lat2_rad / 2))
-    x3 = lon3_rad
-    y3 = math.log(math.tan(math.pi / 4 + lat3_rad / 2))
-    x4 = lon4_rad
-    y4 = math.log(math.tan(math.pi / 4 + lat4_rad / 2))
-    
-    denom = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1)
-    if abs(denom) < 1e-12:
-        return None, None
-    
-    ua_num = (x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)
-    ub_num = (x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)
-    ua = ua_num / denom
-    ub = ub_num / denom
-    
-    if 0 <= ua <= 1 and 0 <= ub <= 1:
-        x = x1 + ua * (x2 - x1)
-        y = y1 + ua * (y2 - y1)
-        lat_rad = 2 * math.atan(math.exp(y)) - math.pi / 2
-        lon_rad = x
-        lat = math.degrees(lat_rad)
-        lon = math.degrees(lon_rad)
-        lon = ((lon + 180) % 360) - 180
-        return lat, lon
-    
-    return None, None
+    _, az_ab, _ = vincenty_inverse(lat1, lon1, lat2, lon2)
+    _, az_cd, _ = vincenty_inverse(lat3, lon3, lat4, lon4)
+    return bearing_bearing_intersection_geo(lat1, lon1, az_ab, lat3, lon3, az_cd)
 
 
 def segment_bearing_intersection_geo(lat1: float, lon1: float, lat2: float, lon2: float,

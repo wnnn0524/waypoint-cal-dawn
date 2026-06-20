@@ -12,6 +12,23 @@ from core import (
 )
 
 
+def _validated_number(label, default, min_val, max_val, step, key):
+    """无 +/- 按钮的数字输入，带范围/格式校验"""
+    default_str = str(int(default) if isinstance(default, float) and default == int(default) else default)
+    raw = st.text_input(label, value=default_str, key=key, label_visibility="visible")
+    try:
+        if isinstance(default, int):
+            val = int(raw)
+        else:
+            val = float(raw)
+        if val < min_val or val > max_val:
+            st.caption(f"范围 {min_val}~{max_val}")
+        return val
+    except (ValueError, TypeError):
+        st.caption(f"请输入有效数字")
+        return default
+
+
 def format_result(lat, lon):
     dms_str = format_degrees_as_dms(lat, lon)
     parts = dms_str.split('，')
@@ -193,23 +210,25 @@ def get_coords_with_ref(label, key_prefix, data_tables, default_lat_d=30, defaul
             return None, None, False, None
     
     else:  # 手动输入
-        row1 = st.columns([0.8, 1.2, 1, 1.2, 0.8, 1.2, 1, 1.2])
-        with row1[0]:
-            lat_dir = st.selectbox("方向", ["N", "S"], key=f"{key_prefix}_lat_dir")
-        with row1[1]:
-            lat_d = st.number_input("纬度度", value=default_lat_d, min_value=0, max_value=90, step=1, key=f"{key_prefix}_lat_d")
-        with row1[2]:
-            lat_m = st.number_input("纬度分", value=0, min_value=0, max_value=59, step=1, key=f"{key_prefix}_lat_m")
-        with row1[3]:
-            lat_s = st.number_input("纬度秒", value=0.0, min_value=0.0, max_value=59.9999, step=0.0001, key=f"{key_prefix}_lat_s")
-        with row1[4]:
-            lon_dir = st.selectbox("方向", ["E", "W"], key=f"{key_prefix}_lon_dir")
-        with row1[5]:
-            lon_d = st.number_input("经度度", value=default_lon_d, min_value=0, max_value=180, step=1, key=f"{key_prefix}_lon_d")
-        with row1[6]:
-            lon_m = st.number_input("经度分", value=0, min_value=0, max_value=59, step=1, key=f"{key_prefix}_lon_m")
-        with row1[7]:
-            lon_s = st.number_input("经度秒", value=0.0, min_value=0.0, max_value=59.9999, step=0.0001, key=f"{key_prefix}_lon_s")
+        row_lat = st.columns([0.6, 1.2, 1.2, 1.2])
+        with row_lat[0]:
+            lat_dir = st.selectbox("N/S", ["N", "S"], key=f"{key_prefix}_lat_dir", label_visibility="visible")
+        with row_lat[1]:
+            lat_d = _validated_number("纬度°", default_lat_d, 0, 90, 1, f"{key_prefix}_lat_d")
+        with row_lat[2]:
+            lat_m = _validated_number("′", 0, 0, 59, 1, f"{key_prefix}_lat_m")
+        with row_lat[3]:
+            lat_s = _validated_number("″", 0.0, -0.01, 60.0, 0.0001, f"{key_prefix}_lat_s")
+        
+        row_lon = st.columns([0.6, 1.2, 1.2, 1.2])
+        with row_lon[0]:
+            lon_dir = st.selectbox("E/W", ["E", "W"], key=f"{key_prefix}_lon_dir", label_visibility="visible")
+        with row_lon[1]:
+            lon_d = _validated_number("经度°", default_lon_d, 0, 180, 1, f"{key_prefix}_lon_d")
+        with row_lon[2]:
+            lon_m = _validated_number("′", 0, 0, 59, 1, f"{key_prefix}_lon_m")
+        with row_lon[3]:
+            lon_s = _validated_number("″", 0.0, -0.01, 60.0, 0.0001, f"{key_prefix}_lon_s")
 
         lat = dms2deg(lat_d, lat_m, lat_s, lat_dir)
         lon = dms2deg(lon_d, lon_m, lon_s, lon_dir)

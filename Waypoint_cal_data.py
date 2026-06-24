@@ -39,59 +39,96 @@ def load_excel_data(file):
 
 def main():
     st.set_page_config(page_title="COMPSYS 21 数据驱动计算", layout="wide")
-    st.title("✈️ COMPSYS 21 坐标计算器")
+
+    # 增大左侧边栏文字
+    st.markdown("""
+    <style>
+    [data-testid="stSidebar"] * {
+        font-size: 25px !important;
+    }
+    [data-testid="stSidebar"] .stRadio label {
+        font-size: 26px !important;
+    }
+    [data-testid="stSidebar"] .stSubheader {
+        font-size: 28px !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.title("✈️ COMPSYS 21 坐标计算器 1.1")
     
     st.session_state['current_time'] = datetime.now().isoformat()
     
     with st.sidebar:
-        st.subheader("📁 数据文件")
-        uploaded_file = st.file_uploader("上传Excel文件", type=['xlsx', 'xls'])
+        page = st.radio("导航", ["🧮 计算器", "📖 使用说明", "📋 版本更新"], key="nav_page")
         
-        if uploaded_file is not None:
-            data_tables = load_excel_data(uploaded_file)
-            if data_tables:
-                st.session_state['data_tables'] = data_tables
-                st.success(f"成功加载 {len(data_tables)} 个工作表")
-                st.write("可用表：")
-                for sheet in data_tables.keys():
-                    st.write(f"- {sheet}")
-        else:
-            st.session_state.pop('data_tables', None)
-            st.info("请上传Excel文件以启用数据引用功能")
+        if page == "🧮 计算器":
+            st.subheader("📁 数据文件")
+            uploaded_file = st.file_uploader("上传Excel文件", type=['xlsx', 'xls'])
+            
+            if uploaded_file is not None:
+                data_tables = load_excel_data(uploaded_file)
+                if data_tables:
+                    st.session_state['data_tables'] = data_tables
+                    st.success(f"成功加载 {len(data_tables)} 个工作表")
+                    st.write("可用表：")
+                    for sheet in data_tables.keys():
+                        st.write(f"- {sheet}")
+            else:
+                st.session_state.pop('data_tables', None)
+                st.info("请上传Excel文件以启用数据引用功能")
     
-    tabs = st.tabs([
-        "Forward", "Inverse", "Seg/Seg", "Brg/Brg",
-        "Seg Dist", "Cir/Brg", "Cir/Cir", "Seg/Brg", "历史记录"
-    ])
+    if page == "🧮 计算器":
+        tabs = st.tabs([
+            "Forward", "Inverse", "Seg/Seg", "Brg/Brg",
+            "Seg Dist", "Cir/Brg", "Cir/Cir", "Seg/Brg", "历史记录"
+        ])
+        
+        data_tables = st.session_state.get('data_tables', None)
+        
+        with tabs[0]:
+            forward_calculator(data_tables)
+        
+        with tabs[1]:
+            inverse_calculator(data_tables)
+        
+        with tabs[2]:
+            segment_segment_calculator(data_tables)
+        
+        with tabs[3]:
+            bearing_bearing_calculator(data_tables)
+        
+        with tabs[4]:
+            segment_distance_calculator(data_tables)
+        
+        with tabs[5]:
+            circle_bearing_calculator(data_tables)
+        
+        with tabs[6]:
+            circle_circle_calculator(data_tables)
+        
+        with tabs[7]:
+            segment_bearing_calculator(data_tables)
+        
+        with tabs[8]:
+            show_history()
     
-    data_tables = st.session_state.get('data_tables', None)
-    
-    with tabs[0]:
-        forward_calculator(data_tables)
-    
-    with tabs[1]:
-        inverse_calculator(data_tables)
-    
-    with tabs[2]:
-        segment_segment_calculator(data_tables)
-    
-    with tabs[3]:
-        bearing_bearing_calculator(data_tables)
-    
-    with tabs[4]:
-        segment_distance_calculator(data_tables)
-    
-    with tabs[5]:
-        circle_bearing_calculator(data_tables)
-    
-    with tabs[6]:
-        circle_circle_calculator(data_tables)
-    
-    with tabs[7]:
-        segment_bearing_calculator(data_tables)
-    
-    with tabs[8]:
-        show_history()
+    elif page == "📖 使用说明":
+        st.markdown("""## 📖 使用说明""")
+        st.divider()
+        st.markdown("""### 误差说明""")
+        st.markdown("前五个计算器，Forward，Inverse，Seg/Seg，Brg/Brg，Seg Dist已经过三期验证，可使用。")
+        st.markdown("C/B计算会与21计算器存在0.5秒误差。")
+        st.divider()
+        st.caption("（后续将补充完整的使用说明内容）")
+
+    elif page == "📋 版本更新":
+        st.markdown("""## 📋 版本更新""")
+        st.divider()
+        st.markdown("1、优化UI界面，新增了使用说明。")
+        st.markdown("2、更新Cir/Brg计算精度，与21计算器的误差经测试在0.5秒以内。")
+        st.divider()
+        st.caption("（后续版本更新将在此记录）")
 
 
 if __name__ == "__main__":

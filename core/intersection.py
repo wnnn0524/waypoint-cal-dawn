@@ -160,28 +160,73 @@ def segment_distance_intersection_geo(lat1: float, lon1: float, lat2: float, lon
 def circle_bearing_intersection_geo(lat1: float, lon1: float, radius: float,
                                      lat2: float, lon2: float, az2: float) -> list:
     """
-    圆与方位角交会（大地坐标系）
-    
+    圆与方位角交会（纯扫描法，无几何近似）
+
     Args:
         lat1, lon1: 圆心坐标
         radius: 半径（米）
-        lat2, lon2: 方位角起点
-        az2: 方位角
-    
+        lat2, lon2: 方位线起点
+        az2: 方位角（度）
+
     Returns:
         [(lat, lon)] 交点列表（0-2个）
     """
-    intersections = []
-    step = 0.0001
-    for i in range(1000):
-        dist = i * step * 100000
-        lat_p, lon_p = vincenty_forward(lat2, lon2, az2, dist)
-        d, _, _ = vincenty_inverse(lat1, lon1, lat_p, lon_p)
-        if abs(d - radius) < 10:
-            intersections.append((lat_p, lon_p))
-            if len(intersections) == 2:
+    az2 = ((az2 % 360) + 360) % 360
+
+    # 方位线起点到圆心的距离和方位
+    d_center, az_to_center, _ = vincenty_inverse(lat2, lon2, lat1, lon1)
+    az_to_center = ((az_to_center % 360) + 360) % 360
+
+    # 边缘情况：起点=圆心
+    if d_center < 0.001:
+        lat_p, lon_p = vincenty_forward(lat2, lon2, az2, radius)
+        return [(lat_p, lon_p)]
+
+    # 方位线与"起点→圆心"方向的夹角
+    delta = abs(az2 - az_to_center)
+    if delta > 180:
+        delta = 360 - delta
+    delta_rad = math.radians(delta)
+
+    # 几何判断
+    perpendicular = d_center * math.sin(delta_rad)
+    if perpendicular > radius + 0.001:
+        return []
+
+    along = d_center * math.cos(delta_rad)
+    half_chord = math.sqrt(max(0, radius * radius - perpendicular * perpendicular))
+
+    # 沿方位线的两个距离（几何估计，用于定位搜索窗口）
+    est_near = along - half_chord
+    est_far = along + half_chord
+
+    result = []
+    for est in (est_near, est_far):
+        if est <= 0:
+            continue
+        # 大窗口二分法搜索：±500 米，80 次迭代收敛到 < 1e-10 米
+        d_low = max(0.001, est - 500.0)
+        d_high = est + 500.0
+        best_lat = best_lon = None
+        best_err = 999.0
+        for _ in range(80):
+            d_mid = (d_low + d_high) / 2.0
+            lat_p, lon_p = vincenty_forward(lat2, lon2, az2, d_mid)
+            d_check, _, _ = vincenty_inverse(lat1, lon1, lat_p, lon_p)
+            err = d_check - radius
+            if abs(err) < best_err:
+                best_err = abs(err)
+                best_lat, best_lon = lat_p, lon_p
+            if abs(err) < 0.000001:
                 break
-    return intersections
+            if err > 0:
+                d_high = d_mid
+            else:
+                d_low = d_mid
+        if best_lat is not None:
+            result.append((best_lat, best_lon))
+
+    return result
 
 
 def circle_circle_intersection_geo(lat1: float, lon1: float, r1: float,

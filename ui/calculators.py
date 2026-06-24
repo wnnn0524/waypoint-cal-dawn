@@ -587,7 +587,9 @@ def circle_bearing_calculator(data_tables):
     with col2:
         st.write("**方位线**")
         latP, lonP, _, ref_infoP = get_coords_with_ref("起点", "cb_P", data_tables, default_lat_d=30, default_lon_d=120)
+        az_type = st.radio("方位角类型", ["真方位", "磁方位"], key="cb_az_type", horizontal=True)
         az = st.number_input("方位角 (°)", value=45.0, min_value=0.0, max_value=360.0, step=0.1, key="cb_az")
+        declination = st.number_input("磁偏角 (东偏为正，°)", value=0.0, step=0.1, key="cb_decl")
     
     result_placeholder = st.empty()
     
@@ -601,7 +603,8 @@ def circle_bearing_calculator(data_tables):
             radius = nautical_miles_to_meters(radius_value)
         else:
             radius = radius_value
-        results = circle_bearing_intersection_geo(latC, lonC, radius, latP, lonP, az)
+        true_az = normalize_az(az + declination) if az_type == "磁方位" else az
+        results = circle_bearing_intersection_geo(latC, lonC, radius, latP, lonP, true_az)
         
         with result_placeholder.container():
             if results:
@@ -619,7 +622,10 @@ def circle_bearing_calculator(data_tables):
                 'radius_unit': radius_unit,
                 'radius': radius_value,
                 'pointP': {'lat': latP, 'lon': lonP, 'ref_info': ref_infoP},
-                'azimuth': az
+                'azimuth': az,
+                'az_type': az_type,
+                'declination': declination,
+                'true_az': true_az
             }
         }
     
